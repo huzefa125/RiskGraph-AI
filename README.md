@@ -47,26 +47,30 @@ Amount: Rs 48,000
 New device: Yes
 Failed attempts: 5
 
-Risk Score: 96/100
-Risk Level: CRITICAL
-Recommended action: Block
+Risk Score: 75.5/100
+Risk Level: HIGH
+Recommended action: Review
 
 Top risk factors:
-1. Multiple failed attempts        (model evidence)
-2. New device                      (model evidence)
+1. Multiple failed attempts         (model evidence)
+2. New device                       (model evidence)
 3. Unusually high transaction amount (model evidence)
+4. Paid via card                    (model evidence)
 ```
 
 ```text
 Amount: Rs 100 (trivial)
-Device shared with 3 other users
-Risk Score: 88/100
+Device and IP shared with several other users
+Risk Score: 99.7/100
 Risk Level: CRITICAL
 Recommended action: Block
 
 Top risk factors:
-1. Device shared across many users  (graph evidence)
-2. IP address shared across many users (graph evidence)
+1. IP address shared across many users (graph evidence)
+2. Device shared across many users     (graph evidence)
+3. New device                          (model evidence)
+4. New or young account                (model evidence)
+5. Unusually high transaction amount    (model evidence)
 ```
 
 The second example is the point of the graph stage: a tiny transaction is still flagged
@@ -142,7 +146,8 @@ cd server
 python -m venv .venv
 ./.venv/Scripts/pip install -r requirements.txt      # (or .venv/bin/pip on macOS/Linux)
 
-# create the `riskgraph` Postgres database, then:
+# create the `riskgraph` Postgres database (adjust user/password to your local Postgres):
+psql -U postgres -h localhost -c "CREATE DATABASE riskgraph;"
 psql -U postgres -h localhost -d riskgraph -f app/db/schema.sql
 
 cp .env.example .env    # set DATABASE_URL if different from the default
@@ -190,8 +195,8 @@ for final reporting — never used for tuning. Latest run:
 
 | Model | Validation F1 | Validation ROC-AUC |
 |---|---|---|
-| Logistic Regression | 0.39 | 0.91 |
-| Random Forest | 0.63 | 0.89 |
+| Logistic Regression | 0.36 | 0.91 |
+| Random Forest | 0.68 | 0.88 |
 | **XGBoost (selected)** | **0.73** | **0.88** |
 
 **Held-out test set** (never used in model selection):

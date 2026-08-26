@@ -59,6 +59,10 @@ def score_transaction(
             raise ValueError(f"unknown user_id {user_id}")
         account_created = user[0]
 
+        merchant = conn.execute(text("SELECT 1 FROM merchants WHERE merchant_id = :mid"), {"mid": merchant_id}).first()
+        if not merchant:
+            raise ValueError(f"unknown merchant_id {merchant_id}")
+
         device_id = _get_or_create_device(conn, device_fingerprint)
         ip_id = _get_or_create_ip(conn, ip_address)
 
@@ -172,4 +176,9 @@ def score_transaction(
         "risk_level": risk_level,
         "recommended_action": recommended_action,
         "risk_factors": risk_factors,
+        # extra fields beyond PredictionResponse — used to build the /ws/risk-stream event
+        "occurred_at": occurred_at,
+        "amount": float(amount),
+        "device_id": device_id,
+        "device_user_count": device_user_count,
     }

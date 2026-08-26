@@ -91,6 +91,18 @@ export interface TransactionInput {
   occurred_at?: string;
 }
 
+export interface RiskStreamEvent {
+  transaction_id: number;
+  user_id: number;
+  occurred_at: string;
+  amount: number;
+  score: number;
+  risk_level: RiskLevel;
+  recommended_action: RecommendedAction;
+  device_id: number;
+  device_user_count: number;
+}
+
 export type CaseDecision = "Allow" | "Review" | "Block";
 export type CaseStatus = "open" | "resolved";
 

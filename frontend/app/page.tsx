@@ -9,6 +9,7 @@ import { TransactionForm } from "@/components/TransactionForm";
 import { TransactionInvestigationPanel } from "@/components/TransactionInvestigationPanel";
 import { RecentTransactionsTable } from "@/components/RecentTransactionsTable";
 import { RingsList } from "@/components/RingsList";
+import { LiveTransactionStream } from "@/components/LiveTransactionStream";
 
 export default function Home() {
   const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null);
@@ -123,6 +124,8 @@ export default function Home() {
           loading={loading}
         />
       </section>
+
+      <LiveTransactionStream />
 
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-lg border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>

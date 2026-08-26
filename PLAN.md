@@ -53,8 +53,11 @@ Criteria"). Stages 6–7 are what make it *demo well* rather than just *pass*.
   is high effort, high failure surface, and easy to get wrong live. If time remains, the only
   LLM add-on worth doing: one call that turns the top SHAP features into a natural-language
   paragraph. That's genuinely useful and low-risk; a multi-step agent is not.
-- **Case management (Phase 8) → skip.** Not part of the scoring question ("how risky is this
-  transaction, and why?"); adds CRUD surface with no analytical value for a demo.
+- **Case management (Phase 8) → originally cut, later built.** At hackathon-scope time this
+  wasn't part of the scoring question ("how risky is this transaction, and why?") and looked
+  like CRUD surface with no analytical value for a demo. That call was revisited — see the
+  "Case Management" section below, added 2026-08-26, once the Allow/Review/Block policy needed
+  somewhere to persist the analyst's actual decision.
 - **Real-time streaming / velocity monitoring infra (Phase 5) → skip as infra.** The *signal*
   (transaction velocity) is already a model feature computed from historical data in Stage 1–2;
   we don't need a live event-ingestion pipeline to demonstrate that signal works.

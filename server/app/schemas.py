@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.config import PAYMENT_METHODS
+
 
 class TransactionInput(BaseModel):
     user_id: int
@@ -10,7 +12,10 @@ class TransactionInput(BaseModel):
     ip_address: str
     merchant_id: int
     amount: float = Field(gt=0)
-    payment_method: str
+    # kept in sync with app.config.PAYMENT_METHODS (also the one-hot columns the model was
+    # trained on) — an unsupported value must be rejected here, not silently one-hot-encoded
+    # to all-zero and passed to the model as if it were "none of the above"
+    payment_method: Literal[tuple(PAYMENT_METHODS)]  # type: ignore[valid-type]
     failed_attempts: int = Field(ge=0, default=0)
     occurred_at: datetime | None = None
 
@@ -98,6 +103,18 @@ class CaseDecisionInput(BaseModel):
     transaction_id: int
     decision: Literal["Allow", "Review", "Block"]
     reason: str | None = None
+
+
+class RiskStreamEvent(BaseModel):
+    transaction_id: int
+    user_id: int
+    occurred_at: datetime
+    amount: float
+    score: float
+    risk_level: str
+    recommended_action: str
+    device_id: int
+    device_user_count: int
 
 
 class Case(BaseModel):
