@@ -21,13 +21,18 @@ export function LiveTransactionStream() {
   const color = STATUS_COLOR[status];
 
   return (
-    <div className="rounded-lg border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Live transaction stream</h2>
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-          style={{ color, background: "color-mix(in srgb, currentColor 14%, transparent)" }}
-        >
+    <div
+      className="rounded-lg border"
+      style={{ borderColor: "var(--border)", borderLeft: `3px solid ${color}`, background: "var(--surface)" }}
+    >
+      <div className="flex items-center justify-between px-5 py-3.5" style={{ borderBottom: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-2">
+          <h2 className="panel-title">Live transaction stream</h2>
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {events.length > 0 ? `${events.length} recent` : ""}
+          </span>
+        </div>
+        <span className="chip" style={{ color }}>
           <span
             aria-hidden
             className={status === "LIVE" ? "animate-pulse" : undefined}
@@ -38,11 +43,11 @@ export function LiveTransactionStream() {
       </div>
 
       {events.length === 0 ? (
-        <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+        <p className="p-5 text-sm" style={{ color: "var(--text-secondary)" }}>
           Waiting for live transactions — score one to see it appear here in real time.
         </p>
       ) : (
-        <ul className="mt-4 flex flex-col gap-1.5">
+        <ul className="thin-scroll max-h-72 overflow-y-auto p-2">
           {events.map((e) => {
             const highlight = e.risk_level === "HIGH" || e.risk_level === "CRITICAL";
             const levelColor = RISK_LEVEL_COLOR[e.risk_level];
@@ -50,15 +55,16 @@ export function LiveTransactionStream() {
               <li key={e.transaction_id}>
                 <Link
                   href={`/transaction/${e.transaction_id}`}
-                  className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-xs hover:opacity-80"
+                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-xs transition-colors hover:border-current"
                   style={{
-                    borderColor: highlight ? levelColor : "var(--border)",
+                    borderColor: highlight ? levelColor : "transparent",
                     background: highlight
-                      ? `color-mix(in srgb, ${levelColor} 10%, var(--surface))`
-                      : "var(--surface)",
+                      ? `color-mix(in srgb, ${levelColor} 8%, var(--surface))`
+                      : "transparent",
+                    marginBottom: "0.125rem",
                   }}
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2 font-mono">
                     <span className="font-medium">#{e.transaction_id}</span>
                     <span style={{ color: "var(--text-muted)" }}>
                       {new Date(e.occurred_at).toLocaleTimeString()}
@@ -66,11 +72,11 @@ export function LiveTransactionStream() {
                   </span>
                   <span className="flex items-center gap-3 tabular-nums">
                     <span>₹{e.amount.toLocaleString("en-IN")}</span>
-                    <span style={{ color: "var(--text-secondary)" }}>
+                    <span className="hidden font-mono sm:inline" style={{ color: "var(--text-secondary)" }}>
                       device #{e.device_id} · {e.device_user_count} users
                     </span>
-                    <span className="font-semibold" style={{ color: levelColor }}>
-                      {e.risk_level} ({e.score.toFixed(1)})
+                    <span className="chip" style={{ color: levelColor }}>
+                      {e.risk_level} · {e.score.toFixed(1)}
                     </span>
                   </span>
                 </Link>

@@ -30,13 +30,13 @@ export default async function TransactionDetailPage({
     transaction.risk_level != null && transaction.score != null && transaction.recommended_action != null;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-10">
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
       <Link href="/" className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
         ← Back to dashboard
       </Link>
 
       {isScored ? (
-        <div className="rounded-lg border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+        <div className="rounded-lg border p-4 sm:p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
           <TransactionInvestigationPanel
             transaction={transaction}
             score={transaction.score!}
@@ -51,29 +51,29 @@ export default async function TransactionDetailPage({
       ) : (
         <>
           <header>
-            <h1 className="text-xl font-semibold">Transaction #{transaction.transaction_id}</h1>
+            <h1 className="text-xl font-semibold tracking-tight">Transaction #{transaction.transaction_id}</h1>
             <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
               User #{transaction.user_id} · ₹{transaction.amount.toLocaleString("en-IN")} ·{" "}
               {transaction.payment_method} · {new Date(transaction.occurred_at).toLocaleString()}
             </p>
           </header>
 
-          <div className="rounded-lg border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-            <h2 className="text-sm font-semibold">Risk assessment</h2>
+          <div className="rounded-lg border p-4 sm:p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+            <h2 className="panel-title">Risk assessment</h2>
             <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
               This transaction is part of the historical dataset and hasn&apos;t been scored through
               the live prediction path.
             </p>
           </div>
 
-          <div className="rounded-lg border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-            <h2 className="mb-3 text-sm font-semibold">Fraud-ring status</h2>
+          <div>
+            <h2 className="eyebrow mb-2">Fraud-ring status</h2>
             <FraudRingStatusCard ring={ring} />
           </div>
 
           {graph && (
-            <div className="rounded-lg border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-              <h2 className="mb-3 text-sm font-semibold">Entity graph</h2>
+            <div>
+              <h2 className="eyebrow mb-2">Entity graph</h2>
               <FraudGraph graph={graph} focusUserId={transaction.user_id} />
             </div>
           )}

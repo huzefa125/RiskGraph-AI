@@ -12,55 +12,52 @@ export function CasesList({ cases }: { cases: Case[] }) {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "var(--border)" }}>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left" style={{ color: "var(--text-muted)" }}>
-            <th className="pb-2 font-medium">Transaction</th>
-            <th className="pb-2 font-medium">User</th>
-            <th className="pb-2 font-medium">Amount</th>
-            <th className="pb-2 font-medium">Risk</th>
-            <th className="pb-2 font-medium">Decision</th>
-            <th className="pb-2 font-medium">Status</th>
-            <th className="pb-2 font-medium">Reason</th>
-            <th className="pb-2 font-medium">Updated</th>
+            <th className="border-b px-3 py-2 font-medium" style={{ borderColor: "var(--border)" }}>Transaction</th>
+            <th className="border-b px-3 py-2 font-medium" style={{ borderColor: "var(--border)" }}>User</th>
+            <th className="border-b px-3 py-2 font-medium" style={{ borderColor: "var(--border)" }}>Amount</th>
+            <th className="border-b px-3 py-2 font-medium" style={{ borderColor: "var(--border)" }}>Risk</th>
+            <th className="border-b px-3 py-2 font-medium" style={{ borderColor: "var(--border)" }}>Decision</th>
+            <th className="border-b px-3 py-2 font-medium" style={{ borderColor: "var(--border)" }}>Status</th>
+            <th className="border-b px-3 py-2 font-medium" style={{ borderColor: "var(--border)" }}>Reason</th>
+            <th className="border-b px-3 py-2 font-medium" style={{ borderColor: "var(--border)" }}>Updated</th>
           </tr>
         </thead>
         <tbody>
           {cases.map((c) => (
             <tr key={c.case_id} className="border-t align-top" style={{ borderColor: "var(--gridline)" }}>
-              <td className="py-2">
-                <Link href={`/transaction/${c.transaction_id}`} className="hover:underline">
+              <td className="px-3 py-2.5 font-mono">
+                <Link href={`/transaction/${c.transaction_id}`} className="hover:underline" style={{ color: "var(--seq-500)" }}>
                   #{c.transaction_id}
                 </Link>
               </td>
-              <td className="py-2 tabular-nums">#{c.user_id}</td>
-              <td className="py-2 tabular-nums">₹{c.amount.toLocaleString("en-IN")}</td>
-              <td className="py-2">
-                <span className="font-medium" style={{ color: RISK_LEVEL_COLOR[c.risk_level] }}>
-                  {c.risk_level} ({c.risk_score.toFixed(1)})
+              <td className="px-3 py-2.5 font-mono tabular-nums">#{c.user_id}</td>
+              <td className="px-3 py-2.5 tabular-nums">₹{c.amount.toLocaleString("en-IN")}</td>
+              <td className="px-3 py-2.5">
+                <span className="chip" style={{ color: RISK_LEVEL_COLOR[c.risk_level] }}>
+                  {c.risk_level} · {c.risk_score.toFixed(1)}
                 </span>
               </td>
-              <td className="py-2">
+              <td className="px-3 py-2.5">
                 <span className="font-medium" style={{ color: ACTION_COLOR[c.decision] }}>
                   {c.decision}
                 </span>
               </td>
-              <td className="py-2">
+              <td className="px-3 py-2.5">
                 <span
-                  className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase"
-                  style={{
-                    color: c.status === "open" ? "var(--status-warning)" : "var(--status-good)",
-                    background: "color-mix(in srgb, currentColor 14%, transparent)",
-                  }}
+                  className="chip uppercase"
+                  style={{ color: c.status === "open" ? "var(--status-warning)" : "var(--status-good)" }}
                 >
                   {c.status}
                 </span>
               </td>
-              <td className="py-2 max-w-xs" style={{ color: "var(--text-secondary)" }}>
+              <td className="max-w-xs px-3 py-2.5" style={{ color: "var(--text-secondary)" }}>
                 {c.reason || "—"}
               </td>
-              <td className="py-2 whitespace-nowrap" style={{ color: "var(--text-secondary)" }}>
+              <td className="whitespace-nowrap px-3 py-2.5" style={{ color: "var(--text-secondary)" }}>
                 {new Date(c.updated_at).toLocaleString()}
               </td>
             </tr>

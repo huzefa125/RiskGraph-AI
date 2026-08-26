@@ -33,10 +33,10 @@ export function CaseDecisionForm({
   }
 
   return (
-    <div className="rounded-md border p-3" style={{ borderColor: "var(--border)" }}>
+    <div className="rounded-md border p-3.5" style={{ borderColor: "var(--border)" }}>
       {current && (
         <div
-          className="mb-3 rounded-md p-2 text-xs"
+          className="mb-3 rounded-md p-2.5 text-xs"
           style={{
             background: "color-mix(in srgb, var(--gridline) 60%, transparent)",
             color: "var(--text-secondary)",
@@ -76,7 +76,7 @@ export function CaseDecisionForm({
             key={decision}
             onClick={() => submit(decision)}
             disabled={submitting !== null}
-            className="flex-1 rounded-md px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+            className="btn btn-solid flex-1 px-3 py-2 text-sm disabled:opacity-60"
             style={{ background: ACTION_COLOR[decision] }}
           >
             {submitting === decision ? "…" : `${ACTION_ICON[decision]} ${decision}`}

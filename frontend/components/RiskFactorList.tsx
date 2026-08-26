@@ -43,17 +43,11 @@ export function RiskFactorList({ factors }: { factors: RiskFactor[] }) {
     <div className="flex flex-col gap-4">
       {modelFactors.length > 0 && (
         <div>
-          <h4
-            className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide"
-            style={{ color: "var(--text-muted)" }}
-          >
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ background: "var(--seq-400)" }}
-            />
+          <h4 className="eyebrow mb-2 flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--seq-400)" }} />
             Model evidence
           </h4>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2.5">
             {modelFactors.map((f) => (
               <FactorBar key={f.feature} factor={f} max={max} />
             ))}
@@ -62,17 +56,11 @@ export function RiskFactorList({ factors }: { factors: RiskFactor[] }) {
       )}
       {graphFactors.length > 0 && (
         <div>
-          <h4
-            className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide"
-            style={{ color: "var(--text-muted)" }}
-          >
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ background: "var(--series-device)" }}
-            />
+          <h4 className="eyebrow mb-2 flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--series-device)" }} />
             Graph evidence
           </h4>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2.5">
             {graphFactors.map((f) => (
               <FactorBar key={f.feature} factor={f} max={max} />
             ))}

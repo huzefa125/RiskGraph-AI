@@ -16,26 +16,20 @@ export function ConnectedEntitiesSummary({
   const ips = idsOfType(graph, "ip");
 
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 gap-3 rounded-md border p-3 sm:grid-cols-3" style={{ borderColor: "var(--border)" }}>
       <div>
-        <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-          Connected users
-        </div>
-        <div className="mt-0.5 text-sm">
+        <div className="eyebrow">Connected users</div>
+        <div className="mt-0.5 font-mono text-sm">
           {users.length > 0 ? users.map((u) => `#${u}`).join(", ") : "none"}
         </div>
       </div>
       <div>
-        <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-          Devices
-        </div>
-        <div className="mt-0.5 text-sm">{devices.length > 0 ? devices.join(", ") : "none"}</div>
+        <div className="eyebrow">Devices</div>
+        <div className="mt-0.5 font-mono text-sm">{devices.length > 0 ? devices.join(", ") : "none"}</div>
       </div>
       <div>
-        <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-          IPs
-        </div>
-        <div className="mt-0.5 text-sm">{ips.length > 0 ? ips.join(", ") : "none"}</div>
+        <div className="eyebrow">IPs</div>
+        <div className="mt-0.5 font-mono text-sm">{ips.length > 0 ? ips.join(", ") : "none"}</div>
       </div>
     </div>
   );

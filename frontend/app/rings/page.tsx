@@ -18,13 +18,13 @@ export default function RingsPage() {
   }, []);
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-6 py-10">
+    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
       <Link href="/" className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
         ← Back to dashboard
       </Link>
 
       <header>
-        <h1 className="text-xl font-semibold">Fraud Ring Investigation</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Fraud Ring Investigation</h1>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           Every coordinated cluster the entity graph has detected — devices/IPs shared by
           3+ distinct users — ranked by model-scored severity. Click a ring to inspect its
@@ -44,7 +44,7 @@ export default function RingsPage() {
       {!error && rings === null && (
         <div className="flex flex-col gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-40 w-full animate-pulse rounded-lg" style={{ background: "var(--gridline)" }} />
+            <div key={i} className="skeleton h-40 w-full" />
           ))}
         </div>
       )}

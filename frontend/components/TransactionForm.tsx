@@ -7,7 +7,7 @@ import type { PredictionResponse } from "@/lib/types";
 const PAYMENT_METHODS = ["card", "upi", "netbanking", "wallet"];
 
 const inputClass =
-  "w-full rounded-md border bg-transparent px-2.5 py-1.5 text-sm outline-none focus:ring-2";
+  "mt-1 w-full rounded-md border bg-transparent px-2.5 py-1.5 text-sm outline-none transition-colors focus:ring-2";
 
 export function TransactionForm({
   onResult,
@@ -133,16 +133,14 @@ export function TransactionForm({
         </label>
       </div>
       {error && (
-        <p className="text-sm" style={{ color: "var(--status-critical)" }}>
+        <p
+          className="rounded-md border p-2.5 text-sm"
+          style={{ borderColor: "var(--status-critical)", color: "var(--status-critical)" }}
+        >
           {error}
         </p>
       )}
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-        style={{ background: "var(--seq-500)" }}
-      >
+      <button type="submit" disabled={loading} className="btn btn-primary px-4 py-2.5 text-sm disabled:opacity-60">
         {loading ? "Scoring…" : "Score transaction"}
       </button>
     </form>

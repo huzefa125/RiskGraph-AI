@@ -30,13 +30,13 @@ export default function CasesPage() {
   const resolvedCount = cases?.filter((c) => c.status === "resolved").length ?? 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-6 py-10">
+    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-4 py-6 sm:px-6 sm:py-8">
       <Link href="/" className="text-sm hover:underline" style={{ color: "var(--text-secondary)" }}>
         ← Back to dashboard
       </Link>
 
       <header>
-        <h1 className="text-xl font-semibold">Cases &amp; Review</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Cases &amp; Review</h1>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           Every analyst decision recorded from a transaction&apos;s investigation panel —
           Review decisions stay open until revisited with Allow or Block.
@@ -52,9 +52,7 @@ export default function CasesPage() {
         </p>
       )}
 
-      {!error && cases === null && (
-        <div className="h-40 w-full animate-pulse rounded-lg" style={{ background: "var(--gridline)" }} />
-      )}
+      {!error && cases === null && <div className="skeleton h-40 w-full" />}
 
       {cases !== null && (
         <>
@@ -67,10 +65,11 @@ export default function CasesPage() {
               <button
                 key={value}
                 onClick={() => setFilter(value)}
-                className="rounded-full border px-3 py-1"
+                className="btn rounded-full border px-3 py-1"
                 style={{
                   borderColor: filter === value ? "var(--seq-500)" : "var(--border)",
                   color: filter === value ? "var(--seq-500)" : "var(--text-secondary)",
+                  background: filter === value ? "color-mix(in srgb, var(--seq-500) 8%, var(--surface))" : "transparent",
                 }}
               >
                 {label}

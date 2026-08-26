@@ -65,24 +65,18 @@ export default function Home() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
-      <header>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">RiskGraph AI</h1>
-            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Risk Intelligence Dashboard — payment fraud scoring, explainability, and
-              fraud-ring detection for the Razorpay AI Risk Manager track.
-            </p>
-          </div>
-          <Link
-            href="/cases"
-            className="shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium hover:underline"
-            style={{ borderColor: "var(--border)" }}
-          >
-            Cases &amp; Review →
-          </Link>
+    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">RiskGraph AI</h1>
+          <p className="mt-0.5 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Risk Intelligence Dashboard — payment fraud scoring, explainability, and
+            fraud-ring detection for the Razorpay AI Risk Manager track.
+          </p>
         </div>
+        <Link href="/cases" className="btn btn-outline shrink-0 px-3 py-1.5 text-xs">
+          Cases &amp; Review →
+        </Link>
       </header>
 
       {loadError && (
@@ -95,7 +89,7 @@ export default function Home() {
         </p>
       )}
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatTile
           label="Model"
           value={modelInfo?.model_name ?? "—"}
@@ -127,25 +121,27 @@ export default function Home() {
 
       <LiveTransactionStream />
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-lg border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-          <h2 className="text-sm font-semibold">Score a transaction</h2>
+      <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="rounded-lg border p-4 sm:p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+          <h2 className="panel-title">Score a transaction</h2>
           <p className="mt-1 mb-4 text-xs" style={{ color: "var(--text-secondary)" }}>
             Prefilled with a high-risk example — edit and submit to see the model react.
           </p>
           <TransactionForm onResult={handleResult} />
         </div>
 
-        <div className="rounded-lg border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
-          <h2 className="text-sm font-semibold">Result</h2>
+        <div className="rounded-lg border p-4 sm:p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+          <h2 className="panel-title">Result</h2>
           {!result ? (
             <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
               Submit a transaction to see its risk score, explanation, and entity graph.
             </p>
           ) : !transactionDetail ? (
-            <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
-              Loading full investigation details…
-            </p>
+            <div className="mt-4 flex flex-col gap-3">
+              <div className="skeleton h-10 w-2/3" />
+              <div className="skeleton h-2.5 w-full" />
+              <div className="skeleton h-20 w-full" />
+            </div>
           ) : (
             <div className="mt-4">
               <TransactionInvestigationPanel
@@ -163,15 +159,15 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div>
-          <h2 className="mb-3 text-sm font-semibold">Recent transactions</h2>
+      <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="rounded-lg border p-4 sm:p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
+          <h2 className="panel-title mb-3">Recent transactions</h2>
           <RecentTransactionsTable rows={recent} loading={loading} />
         </div>
-        <div>
+        <div className="rounded-lg border p-4 sm:p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Detected fraud rings</h2>
-            <Link href="/rings" className="text-xs hover:underline" style={{ color: "var(--text-secondary)" }}>
+            <h2 className="panel-title">Detected fraud rings</h2>
+            <Link href="/rings" className="text-xs font-medium hover:underline" style={{ color: "var(--seq-500)" }}>
               Full investigation view →
             </Link>
           </div>

@@ -82,10 +82,13 @@ export function FraudGraph({
   const hubUserCount = selected && selected.type !== "user" ? selectedNeighborIds.length : 0;
 
   return (
-    <div>
+    <div
+      className="rounded-lg border p-4"
+      style={{ borderColor: "var(--border)", background: "color-mix(in srgb, var(--gridline) 22%, var(--surface))" }}
+    >
       <svg
         viewBox={`0 0 ${SIZE} ${SIZE}`}
-        className="w-full max-w-sm"
+        className="mx-auto block w-full max-w-sm"
         role="img"
         aria-label={`Entity graph for transaction ${graph.transaction_id}`}
       >
@@ -101,9 +104,9 @@ export function FraudGraph({
               y1={a.y}
               x2={b.x}
               y2={b.y}
-              stroke="var(--gridline)"
-              strokeWidth={2}
-              opacity={dimmed ? 0.35 : 1}
+              stroke="var(--text-muted)"
+              strokeWidth={1.5}
+              opacity={dimmed ? 0.25 : 0.55}
             />
           );
         })}
@@ -113,7 +116,7 @@ export function FraudGraph({
           const isFocus = n.id === focusId;
           const isSelected = n.id === selectedId;
           const isSharedHub = n.type !== "user" && (neighbors.get(n.id)?.size ?? 0) >= 2;
-          const baseRadius = n.type === "user" ? 8 : 11;
+          const baseRadius = n.type === "user" ? 9 : 13;
           return (
             <g
               key={n.id}
@@ -140,6 +143,7 @@ export function FraudGraph({
               {isSharedHub && (
                 <circle cx={p.x} cy={p.y} r={baseRadius + 4} fill="none" stroke="var(--status-critical)" strokeWidth={2} />
               )}
+              <circle cx={p.x} cy={p.y} r={baseRadius + 2} fill="var(--surface)" />
               <circle
                 cx={p.x}
                 cy={p.y}
@@ -153,7 +157,7 @@ export function FraudGraph({
         })}
       </svg>
 
-      <ul className="mt-2 flex flex-wrap gap-4 text-xs" style={{ color: "var(--text-secondary)" }}>
+      <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 border-t pt-3 text-xs" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
         {typesPresent.map((t) => (
           <li key={t} className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: NODE_COLOR[t] }} />
