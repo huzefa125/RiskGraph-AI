@@ -301,8 +301,50 @@ expand graph) with zero console errors. Confirmed live that device-only and IP-o
 (from the earlier asymmetry fix) correctly show an empty `ips`/`devices` column
 respectively, rather than being hidden or miscategorized.
 
+## Transaction Investigation panel (2026-08-26)
+
+New `TransactionInvestigationPanel` component consolidates everything about one
+transaction in one place: recommended action, risk meter, model-vs-graph-evidence risk
+factors (reused from the ring work), a connected-entities summary (users/devices/IPs
+derived from the existing `/graph/{id}` response, no new endpoint), and fraud-ring status
+(cross-referencing the existing `/rings` endpoint by checking `transaction_ids`
+membership — same pattern as the ring page, no new endpoint). One additive backend
+change: `config.level_to_action()` — a fixed lookup table (LOW→Allow, MEDIUM/HIGH→Review,
+CRITICAL→Block), added to `PredictionResponse` and `RecentTransaction`. This is the
+deterministic policy layer README section 11 always described but never had code for —
+the model still never authorizes/blocks anything itself.
+
+Both the dashboard's result panel and the transaction detail page now render this one
+component instead of duplicating RiskMeter/RiskFactorList/FraudGraph inline — a real
+de-duplication, not just a new feature. Verified: `pytest`/`tsc`/build/lint clean, full
+Playwright pass on both usages with zero console errors.
+
+## Case Management (2026-08-26)
+
+Added the `cases` table (one row per transaction — `transaction_id UNIQUE` — recording a
+new decision upserts rather than duplicates) and a small `app/cases.py` service:
+`record_decision()` snapshots the risk score/level at decision time from `risk_scores`
+(immutable copy, not a live join — what the analyst saw never changes retroactively),
+derives `status` from the decision itself (Review → open, Allow/Block → resolved), and
+rejects decisions on unscored transactions (verified: returns 400, not a crash). Two new
+endpoints, `POST /cases` and `GET /cases` — no other backend surface touched, no ORM,
+same raw-SQL-via-SQLAlchemy style as everywhere else in this codebase.
+
+Frontend: `CaseDecisionForm` (reason textarea + Allow/Review/Block buttons, upserts via
+the same endpoint) is embedded directly in `TransactionInvestigationPanel`; a new `/cases`
+page (`CasesList` + status filter tabs) mirrors the `/rings` page's established pattern.
+`cases` CASCADE-truncates on dataset reset (FK to `transactions`) — made explicit in
+`generate_synthetic_data.py`'s TRUNCATE list rather than relying on implicit cascade.
+
+Verified end-to-end via Playwright: score a transaction → record a Review decision with a
+reason → escalate to Block (confirmed same case_id, status flips to resolved, not a
+duplicate row) → visit Cases & Review → filter to Resolved. Zero console errors,
+`pytest`/`tsc`/build/lint all clean. Reset to a clean state afterward (8,179 transactions,
+0 risk_scores, 0 cases).
+
 ## Next action
 
 Demo script + rehearsal. Everything else on the original priority list (audit, SHAP fix,
 scenario testing, metric validation, parity fix, graph UX, evidence-source UX, ring
-asymmetry, ring investigation view) is done.
+asymmetry, ring investigation view, transaction investigation panel, case management) is
+done.

@@ -1,26 +1,28 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f9f9f7;
-  --surface: #fcfcfb;
-  --foreground: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --border: rgba(11, 11, 11, 0.1);
-  --gridline: #e1e0d9;
+  --background: #f4f7fb;
+  --surface: #ffffff;
+  --foreground: #0d2138;
+  --text-secondary: #51667e;
+  --text-muted: #8697ab;
+  --border: rgba(13, 33, 56, 0.1);
+  --gridline: #e6edf5;
 
-  /* categorical (graph node types) */
-  --series-user: #2a78d6;
+  /* categorical (graph node types) — user node matches the brand blue */
+  --series-user: #2563eb;
   --series-device: #eb6834;
   --series-ip: #1baf7a;
 
-  /* sequential (risk meter, factor bars) */
-  --seq-100: #cde2fb;
-  --seq-400: #3987e5;
-  --seq-500: #256abf;
-  --seq-700: #0d366b;
+  /* sequential (risk meter, factor bars, primary buttons/links) — a classic
+     fintech blue, deliberately not an exact brand-color match */
+  --seq-100: #dbe9fe;
+  --seq-400: #60a5fa;
+  --seq-500: #2563eb;
+  --seq-700: #1e3a8a;
 
-  /* status (risk levels) */
+  /* status (risk levels) — unchanged: already validated for CVD-safe contrast,
+     kept semantically distinct from the brand blue (good=green, critical=red) */
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-serious: #ec835a;
@@ -36,22 +38,22 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0d0d0d;
-    --surface: #1a1a19;
-    --foreground: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
+    --background: #0a1420;
+    --surface: #101d2e;
+    --foreground: #f1f6fc;
+    --text-secondary: #a9bbcf;
+    --text-muted: #7f92a8;
     --border: rgba(255, 255, 255, 0.1);
-    --gridline: #2c2c2a;
+    --gridline: #1c2d42;
 
-    --series-user: #3987e5;
+    --series-user: #5b9dff;
     --series-device: #d95926;
     --series-ip: #199e70;
 
-    --seq-100: #184f95;
-    --seq-400: #3987e5;
-    --seq-500: #256abf;
-    --seq-700: #b7d3f6;
+    --seq-100: #16305c;
+    --seq-400: #5b9dff;
+    --seq-500: #4489f5;
+    --seq-700: #cfe1ff;
 
     --status-good: #0ca30c;
     --status-warning: #fab219;
@@ -64,4 +66,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* subtle card elevation — every bordered surface in this app uses this exact
+   class combination, so this reaches all of them without touching each component */
+.rounded-lg.border {
+  box-shadow: 0 1px 2px rgba(13, 33, 56, 0.04), 0 4px 16px rgba(13, 33, 56, 0.05);
 }
