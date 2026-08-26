@@ -178,7 +178,58 @@ correct):
    the fix would have shown high risk on transaction #1, days before anyone else touched that
    device.
 
+## Full codebase audit (2026-08-26)
+
+Read every backend/frontend file and both docs end-to-end before changing anything, per an
+explicit 10-phase audit request. Findings and fixes:
+
+7. **README.md rewritten.** Was still the original vision doc claiming "Current phase:
+   Phase 1 — ML MVP" despite a fully working system. Now documents what's actually
+   implemented vs. explicitly listed as NOT implemented (Neo4j, LLM agents, case
+   management, Razorpay integration, Docker, Recharts — none of these exist in the repo).
+8. **Real, confirmed build-breaking bug**: `frontend/lib/types.ts`'s `RecentTransaction`
+   type had no `risk_factors` field, but `transaction/[id]/page.tsx` read it directly —
+   `npx tsc --noEmit` failed with 2 errors before the fix. Fixed by adding the field.
+9. **Dead code removed**: `server/app/db/connection.py` defined `SessionLocal`/`get_db()`
+   (an unused FastAPI dependency pattern) — confirmed via repo-wide grep that nothing
+   imports either; every route uses `engine.connect()`/`engine.begin()` directly. Removed.
+10. **Parity test promoted from scratch script to the repo**: `server/app/tests/test_feature_parity.py`
+    (pytest, added as a dependency) — dynamically samples real transactions (earliest,
+    latest, one from a shared device) and asserts training-time and predict-time
+    device/IP/amount-ratio features match exactly. Passing.
+11. **Graph UX (Phase 6)**: `FraudGraph` is now interactive — click a node for a detail
+    panel (connected users for a device/IP hub, "shares with users #X, #Y" for a user),
+    the investigated transaction's own user is visually distinguished (ring), and
+    shared/suspicious hubs get a red ring. Required one additive API field
+    (`PredictionResponse.user_id`, non-breaking) so the frontend knows which user is
+    "under investigation" without an extra round-trip.
+12. **Real bug found and fixed while verifying the above**: converting `FraudGraph` to a
+    client component surfaced a genuine SSR hydration mismatch on `/transaction/[id]`
+    (confirmed via Playwright `pageerror`, not the earlier ColorZilla-extension false
+    positive — headless Chromium has no extensions). Root cause, found by diffing actual
+    server vs. client HTML: React's SSR renders a `<title>` *element* empty when nested
+    inside SVG shapes (it special-cases that tag name for the document title). Fixed by
+    dropping the native hover-tooltip `<title>` entirely — `aria-label` covers
+    accessibility, and the click-to-select detail panel already shows richer information
+    than a hover tooltip would.
+13. **Risk-explanation UX (Phase 7)**: `RiskFactorList` now groups factors into "Model
+    evidence" vs. "Graph evidence" (the latter = `device_user_count`/`ip_user_count`),
+    each with a distinct color and label, instead of one undifferentiated list.
+14. **Frontend polish (Phase 9)**: added loading-skeleton states to `StatTile`,
+    `RecentTransactionsTable`, and `RingsList` for the initial dashboard fetch (previously
+    showed bare `—` placeholders with no loading indication).
+15. **AI investigation summary (Phase 8): deliberately skipped.** No LLM is configured in
+    this project; adding one would introduce a new dependency, an API key requirement,
+    and cost for a feature explicitly marked optional — "if adding the LLM would make the
+    project less reliable, skip it." The deterministic risk system (model + SHAP + graph)
+    remains fully authoritative and sufficient on its own.
+
+All of the above verified: `pytest` passing, `npm run lint` clean, `npm run build` clean
+(including the TypeScript fix), full Playwright browser pass with zero console errors on
+both `/` and `/transaction/[id]`, live-tested legitimate + suspicious + ring-shared
+transactions through `/predict`, `/graph/{id}`, and `/rings`.
+
 ## Next action
 
-Demo script + final README/PLAN reconciliation, or graph UI polish (click a node for
-users/transactions/risk detail) per your priority order — pending your call on which next.
+Demo script + rehearsal. Everything else on the original priority list (audit, SHAP fix,
+scenario testing, metric validation, parity fix, graph UX, evidence-source UX) is done.

@@ -1,6 +1,16 @@
 import type { FraudRing } from "@/lib/types";
 
-export function RingsList({ rings }: { rings: FraudRing[] }) {
+export function RingsList({ rings, loading }: { rings: FraudRing[]; loading?: boolean }) {
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-14 w-full animate-pulse rounded-md" style={{ background: "var(--gridline)" }} />
+        ))}
+      </div>
+    );
+  }
+
   if (rings.length === 0) {
     return (
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>

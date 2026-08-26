@@ -164,6 +164,7 @@ def score_transaction(
 
     return {
         "transaction_id": transaction_id,
+        "user_id": user_id,
         "score": score,
         "risk_level": risk_level,
         "risk_factors": risk_factors,

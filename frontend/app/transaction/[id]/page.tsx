@@ -60,7 +60,7 @@ export default async function TransactionDetailPage({
       {graph && (
         <div className="rounded-lg border p-5" style={{ borderColor: "var(--border)", background: "var(--surface)" }}>
           <h2 className="mb-3 text-sm font-semibold">Entity graph</h2>
-          <FraudGraph graph={graph} />
+          <FraudGraph graph={graph} focusUserId={transaction.user_id} />
         </div>
       )}
     </div>

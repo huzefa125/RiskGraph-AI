@@ -22,6 +22,7 @@ class RiskFactor(BaseModel):
 
 class PredictionResponse(BaseModel):
     transaction_id: int
+    user_id: int
     score: float
     risk_level: str
     risk_factors: list[RiskFactor]

@@ -8,6 +8,7 @@ export interface RiskFactor {
 
 export interface PredictionResponse {
   transaction_id: number;
+  user_id: number;
   score: number;
   risk_level: RiskLevel;
   risk_factors: RiskFactor[];
@@ -43,6 +44,7 @@ export interface RecentTransaction {
   occurred_at: string;
   score: number | null;
   risk_level: RiskLevel | null;
+  risk_factors?: RiskFactor[] | null;
 }
 
 export interface ConfusionMatrix {

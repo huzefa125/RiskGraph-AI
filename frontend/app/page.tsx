@@ -18,6 +18,7 @@ export default function Home() {
   const [result, setResult] = useState<PredictionResponse | null>(null);
   const [graph, setGraph] = useState<GraphResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const refreshRecent = useCallback(() => {
     api.recentTransactions(10).then(setRecent).catch(() => {});
@@ -30,7 +31,8 @@ export default function Home() {
         setRings(ringsData);
         setRecent(recentData);
       })
-      .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to reach the API"));
+      .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to reach the API"))
+      .finally(() => setLoading(false));
   }, []);
 
   async function handleResult(prediction: PredictionResponse) {
@@ -71,11 +73,13 @@ export default function Home() {
           label="Model"
           value={modelInfo?.model_name ?? "—"}
           caption="chosen by validation F1"
+          loading={loading}
         />
         <StatTile
           label="Test ROC-AUC"
           value={modelInfo ? modelInfo.test_metrics.roc_auc.toFixed(2) : "—"}
           caption="held-out set"
+          loading={loading}
         />
         <StatTile
           label="Test precision / recall"
@@ -84,11 +88,13 @@ export default function Home() {
               ? `${modelInfo.test_metrics.precision.toFixed(2)} / ${modelInfo.test_metrics.recall.toFixed(2)}`
               : "—"
           }
+          loading={loading}
         />
         <StatTile
           label="Fraud rings detected"
           value={String(rings.length)}
           caption="shared device/IP, 3+ users"
+          loading={loading}
         />
       </section>
 
@@ -121,7 +127,7 @@ export default function Home() {
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
                     Entity graph
                   </h3>
-                  <FraudGraph graph={graph} />
+                  <FraudGraph graph={graph} focusUserId={result.user_id} />
                 </div>
               )}
             </div>
@@ -132,11 +138,11 @@ export default function Home() {
       <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div>
           <h2 className="mb-3 text-sm font-semibold">Recent transactions</h2>
-          <RecentTransactionsTable rows={recent} />
+          <RecentTransactionsTable rows={recent} loading={loading} />
         </div>
         <div>
           <h2 className="mb-3 text-sm font-semibold">Detected fraud rings</h2>
-          <RingsList rings={rings} />
+          <RingsList rings={rings} loading={loading} />
         </div>
       </section>
     </div>

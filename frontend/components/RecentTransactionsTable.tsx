@@ -2,7 +2,23 @@ import Link from "next/link";
 import type { RecentTransaction } from "@/lib/types";
 import { RISK_LEVEL_COLOR } from "@/lib/risk";
 
-export function RecentTransactionsTable({ rows }: { rows: RecentTransaction[] }) {
+export function RecentTransactionsTable({
+  rows,
+  loading,
+}: {
+  rows: RecentTransaction[];
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-6 w-full animate-pulse rounded" style={{ background: "var(--gridline)" }} />
+        ))}
+      </div>
+    );
+  }
+
   if (rows.length === 0) {
     return (
       <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
