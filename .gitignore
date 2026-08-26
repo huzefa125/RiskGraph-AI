@@ -1,0 +1,17 @@
+# secrets
+.env
+*.env.local
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# node
+node_modules/
+.next/
+
+# models / data artifacts
+server/app/model/artifacts/
+*.pkl
