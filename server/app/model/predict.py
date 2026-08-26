@@ -14,7 +14,9 @@ from app.model.explain import explain
 _model = None
 
 
-def _get_model():
+def get_model():
+    """Cached model load — shared with app.graph.build_graph for ring severity scoring
+    so there's exactly one place that loads the trained model."""
     global _model
     if _model is None:
         _model = joblib.load(MODEL_PATH)
@@ -126,7 +128,7 @@ def score_transaction(
         for method in PAYMENT_METHODS:
             feature_row[f"payment_method_{method}"] = int(payment_method == method)
 
-        model = _get_model()
+        model = get_model()
         X = [[feature_row[col] for col in FEATURE_COLUMNS]]
         probability = model.predict_proba(X)[0][1]
         score = round(float(probability) * 100, 2)

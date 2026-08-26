@@ -229,7 +229,80 @@ All of the above verified: `pytest` passing, `npm run lint` clean, `npm run buil
 both `/` and `/transaction/[id]`, live-tested legitimate + suspicious + ring-shared
 transactions through `/predict`, `/graph/{id}`, and `/rings`.
 
+## Ring-scoring asymmetry fix (2026-08-26)
+
+Reported bug: ₹100, 0 failed attempts, device/IP shared by 4+ users scored LOW instead of
+flagging the ring. Reproduced directly (not assumed): a device shared by 4 real users, IP
+NOT shared, scored 0.25/LOW despite device_user_count=5; the SAME device_user_count when
+IP was also shared scored CRITICAL. Root cause found in the training data itself: 89
+examples of "device shared, IP NOT shared" existed, but 88 of them were the legit 2-user
+family-device pattern and only 1 was fraud — the model correctly learned that
+device-only sharing is usually safe, because in this dataset it almost always was. The
+"IP shared, device NOT shared" combination had essentially zero training rows (1 total).
+
+Fixed the same way as the earlier standalone-fraud gap: added real training examples
+instead of hand-tuning weights. `build_partial_sharing_ring_transactions()` in
+`generate_synthetic_data.py` injects two new archetypes — rings that share ONLY a device
+(each member keeps a distinct IP) and rings that share ONLY an IP (each member keeps a
+distinct device) — 3 rings each, 3-6 members per ring, same burst/amount/failed-attempts
+distribution as the existing "both shared" rings. New disjoint device/IP pools guarantee
+no accidental cross-contamination with home/family/existing-ring pools (same
+sampling-without-replacement discipline as every other pool in this file).
+
+Result: device-only sharing now correctly reads as a strong signal (SHAP contribution on
+`device_user_count` alone: 1.7 → 7.2 for the same test case) instead of being swamped by
+the family-device hard-negative pattern. Held-out test metrics *improved* as a side
+effect of the added real signal — precision 1.0, recall 0.72, F1 0.84, ROC-AUC 0.95 (up
+from F1 0.58 previously) — because this was filling a genuine training gap, not
+overfitting to the reported case (no hardcoding: the fix is a synthetic-data generation
+pattern, not a rule keyed on any specific transaction).
+
+Verified: `pytest` parity test still passing (untouched — only the data generator
+changed, not feature computation or `/predict`), the 10-scenario calibration sweep still
+clean (no single weak signal alone triggers risk), all 5 requested scenarios pass live:
+
+| Scenario | Score | Level | vs. requested |
+|---|---|---|---|
+| ₹500 trusted device | 0.01 | LOW | ✅ |
+| ₹50K + failures + new device | 93.33 | CRITICAL | requested HIGH — lands one band higher, still correctly high-risk, not a regression |
+| ₹5L + failures + shared device | 98.33 | CRITICAL | ✅ |
+| ₹100 + shared device/IP (the reported bug) | 99.59 | CRITICAL | ✅ (also verified device-only-sharing specifically: 88.07 CRITICAL) |
+| ₹2L trusted device | 0.19 | LOW | ✅ |
+
+Reset to a clean state afterward (8,179 transactions, 0 scored).
+
+## Fraud Ring Investigation view (2026-08-26)
+
+New dedicated page (`frontend/app/rings/page.tsx`) built entirely on the existing
+`/rings` and `/graph/{id}` endpoints — no new backend endpoint, no new ML model, no new
+dependency. Two additive backend changes made this possible:
+
+1. `detect_fraud_rings()` (`graph/build_graph.py`) now also returns, per ring: shared
+   devices, shared IPs, transaction IDs, transaction count, total amount, and a
+   `risk_score`/`risk_level`. Severity reuses the *actual trained model* (mean
+   `predict_proba` over every transaction belonging to the ring, via the same
+   point-in-time `compute_features`) rather than a new ad hoc formula — the same model
+   already used everywhere else, not a parallel scoring system. `representative_transaction_id`
+   (the ring's lowest transaction_id) lets the UI reuse `/graph/{transaction_id}` verbatim
+   for "click a ring to inspect its entity graph" — no new graph endpoint needed.
+2. `predict.py`'s `_get_model()` renamed to public `get_model()` so `build_graph.py` can
+   share the same cached model load instead of loading it twice.
+
+`FraudRing` schema/type extended additively (old consumers of `users`/`component_size`,
+e.g. the existing dashboard `RingsList`, are unaffected). New `FraudRingCard` component
+reuses `FraudGraph` (the exact same interactive graph from the transaction detail page)
+for the expand-to-inspect view, and `RISK_LEVEL_COLOR`/`RISK_LEVEL_ICON` from `lib/risk.ts`
+for the severity badge — same visual language as the rest of the dashboard, not a new style.
+
+Verified: `/rings` responds in ~2.1s (acceptable for a dedicated investigation page, not a
+hot path), `pytest` still passing (untouched), `tsc`/`npm run build`/`npm run lint` all
+clean, full Playwright pass (dashboard → "Full investigation view" link → ring list →
+expand graph) with zero console errors. Confirmed live that device-only and IP-only rings
+(from the earlier asymmetry fix) correctly show an empty `ips`/`devices` column
+respectively, rather than being hidden or miscategorized.
+
 ## Next action
 
 Demo script + rehearsal. Everything else on the original priority list (audit, SHAP fix,
-scenario testing, metric validation, parity fix, graph UX, evidence-source UX) is done.
+scenario testing, metric validation, parity fix, graph UX, evidence-source UX, ring
+asymmetry, ring investigation view) is done.

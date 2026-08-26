@@ -27,6 +27,16 @@ legit and fell back entirely on device_user_count (which then carried ~82% of it
 learned importance). The mixture's large-purchase component gives real density of
 high-amount LEGIT transactions (genuine hard negatives).
 
+Fraud rings come in three sharing patterns (both device+IP, device-only, IP-only), not
+just one. With only "both shared" rings, training had 89 examples of "device shared, IP
+NOT shared" and only 1 was fraud — that combination came almost entirely from the 2-user
+legit family-device pattern, so the model learned device-only sharing was usually safe.
+A live test confirmed it: 4 real distinct users sharing a device (but each with their own
+IP) scored 0.25/LOW despite device_user_count=5, while the SAME device_user_count in a
+"both shared" context scored CRITICAL. Fixed by adding explicit device-only and IP-only
+ring archetypes so the model learns each signal is independently a coordinated-fraud
+tell, not just their conjunction.
+
 Standalone (non-graph) fraud is injected as THREE distinct archetypes, not one bundle.
 A single archetype (new device + extreme amount + failed attempts + night, always
 together) taught the model that exact bundle rather than each signal's own effect —
@@ -54,8 +64,11 @@ random.seed(RANDOM_SEED)
 N_USERS = 300
 N_MERCHANTS = 25
 N_TRANSACTIONS = 8000
-N_FRAUD_RINGS = 6          # groups of users coordinating fraud through a shared device/IP
+N_FRAUD_RINGS = 6          # groups of users coordinating fraud through a shared device AND IP
 RING_SIZE = (3, 6)          # users per ring
+MAX_RING_MEMBERS = RING_SIZE[1]
+N_DEVICE_ONLY_RINGS = 3    # share ONLY a device — each member has their own distinct IP
+N_IP_ONLY_RINGS = 3        # share ONLY an IP — each member has their own distinct device
 N_FAMILY_DEVICES = 8       # legit devices shared by exactly 2 users each — below the ring threshold
 
 # Standalone (non-graph) fraud comes in three distinct archetypes rather than one bundled
@@ -74,13 +87,23 @@ N_RARE = int(N_TRANSACTIONS * 0.10)           # generous cap on one-off switch e
 N_FAMILY = N_FAMILY_DEVICES
 N_RING = N_FRAUD_RINGS
 N_STANDALONE = N_STANDALONE_DEDICATED
+# device-only rings need one shared device each + one unique IP per member (upper-bounded
+# by the largest possible ring); IP-only rings are the mirror image
+N_DEVICE_ONLY_SHARED = N_DEVICE_ONLY_RINGS
+N_DEVICE_ONLY_UNIQUE = N_DEVICE_ONLY_RINGS * MAX_RING_MEMBERS
+N_IP_ONLY_SHARED = N_IP_ONLY_RINGS
+N_IP_ONLY_UNIQUE = N_IP_ONLY_RINGS * MAX_RING_MEMBERS
 
 HOME_START = 0
 RARE_START = HOME_START + N_HOME
 FAMILY_START = RARE_START + N_RARE
 RING_START = FAMILY_START + N_FAMILY
 STANDALONE_START = RING_START + N_RING
-TOTAL_DEVICES = TOTAL_IPS = STANDALONE_START + N_STANDALONE
+DEVICE_ONLY_SHARED_START = STANDALONE_START + N_STANDALONE
+DEVICE_ONLY_UNIQUE_START = DEVICE_ONLY_SHARED_START + N_DEVICE_ONLY_SHARED
+IP_ONLY_SHARED_START = DEVICE_ONLY_UNIQUE_START + N_DEVICE_ONLY_UNIQUE
+IP_ONLY_UNIQUE_START = IP_ONLY_SHARED_START + N_IP_ONLY_SHARED
+TOTAL_DEVICES = TOTAL_IPS = IP_ONLY_UNIQUE_START + N_IP_ONLY_UNIQUE
 
 START = datetime(2025, 1, 1)
 END = datetime(2025, 8, 1)
@@ -196,6 +219,37 @@ def build_fraud_ring_transactions(user_ids, ring_devices, ring_ips, merchant_ids
                     "user_id": user_id,
                     "device_id": shared_device,
                     "ip_id": shared_ip,
+                    "merchant_id": random.choice(merchant_ids),
+                    "amount": round(random.lognormvariate(mu=7.6, sigma=0.7), 2),
+                    "payment_method": random.choice(PAYMENT_METHODS),
+                    "occurred_at": occurred_at,
+                    "failed_attempts": random.choices([0, 1, 2, 3], weights=[0.5, 0.25, 0.15, 0.1])[0],
+                    "is_fraud": True,
+                })
+    return rows
+
+
+def build_partial_sharing_ring_transactions(user_ids, shared_ids, unique_ids, merchant_ids, count, share_device: bool):
+    """Rings that share ONLY a device (each member keeps their own distinct IP) or ONLY
+    an IP (each member keeps their own distinct device) — see module docstring for why
+    this exists: without it, device-only sharing was indistinguishable in training from
+    the much more common 2-user legit family-device pattern."""
+    rows = []
+    unique_pool = iter(unique_ids)
+    for ring_index in range(count):
+        ring_users = random.sample(user_ids, random.randint(*RING_SIZE))
+        shared_entity = shared_ids[ring_index]
+        burst_start = random_datetime(START, END - timedelta(hours=1))
+        for user_id in ring_users:
+            member_unique_entity = next(unique_pool)
+            for _ in range(random.randint(2, 4)):
+                occurred_at = burst_start + timedelta(minutes=random.randint(0, 45))
+                device_id = shared_entity if share_device else member_unique_entity
+                ip_id = member_unique_entity if share_device else shared_entity
+                rows.append({
+                    "user_id": user_id,
+                    "device_id": device_id,
+                    "ip_id": ip_id,
                     "merchant_id": random.choice(merchant_ids),
                     "amount": round(random.lognormvariate(mu=7.6, sigma=0.7), 2),
                     "payment_method": random.choice(PAYMENT_METHODS),
@@ -337,6 +391,10 @@ def main():
     ring_ips = list(range(RING_START, RING_START + N_RING))
     standalone_devices = list(range(STANDALONE_START, STANDALONE_START + N_STANDALONE))
     standalone_ips = list(range(STANDALONE_START, STANDALONE_START + N_STANDALONE))
+    device_only_shared = list(range(DEVICE_ONLY_SHARED_START, DEVICE_ONLY_SHARED_START + N_DEVICE_ONLY_SHARED))
+    device_only_unique_ips = list(range(DEVICE_ONLY_UNIQUE_START, DEVICE_ONLY_UNIQUE_START + N_DEVICE_ONLY_UNIQUE))
+    ip_only_shared = list(range(IP_ONLY_SHARED_START, IP_ONLY_SHARED_START + N_IP_ONLY_SHARED))
+    ip_only_unique_devices = list(range(IP_ONLY_UNIQUE_START, IP_ONLY_UNIQUE_START + N_IP_ONLY_UNIQUE))
 
     # each user gets a DISTINCT home device/IP — random.sample guarantees no two users
     # ever share one by chance (unlike repeated random.choice). Computed once here so the
@@ -356,10 +414,16 @@ def main():
         user_ids, user_home_device, user_home_ip, (rare_devices, rare_ips), merchant_ids, N_TRANSACTIONS, family_devices
     )
     ring_txns = build_fraud_ring_transactions(user_ids, ring_devices, ring_ips, merchant_ids)
+    device_only_ring_txns = build_partial_sharing_ring_transactions(
+        user_ids, device_only_shared, device_only_unique_ips, merchant_ids, N_DEVICE_ONLY_RINGS, share_device=True
+    )
+    ip_only_ring_txns = build_partial_sharing_ring_transactions(
+        user_ids, ip_only_shared, ip_only_unique_devices, merchant_ids, N_IP_ONLY_RINGS, share_device=False
+    )
     standalone_txns = build_standalone_fraud_transactions(
         user_ids, standalone_devices, standalone_ips, user_home_device, user_home_ip, merchant_ids
     )
-    transactions = normal_txns + ring_txns + standalone_txns
+    transactions = normal_txns + ring_txns + device_only_ring_txns + ip_only_ring_txns + standalone_txns
     assign_new_device_flags(transactions)
     assign_standalone_fraud_labels(transactions)
     random.shuffle(transactions)

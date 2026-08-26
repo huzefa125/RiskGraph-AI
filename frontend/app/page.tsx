@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { FraudRing, GraphResponse, ModelInfo, PredictionResponse, RecentTransaction } from "@/lib/types";
@@ -141,7 +142,12 @@ export default function Home() {
           <RecentTransactionsTable rows={recent} loading={loading} />
         </div>
         <div>
-          <h2 className="mb-3 text-sm font-semibold">Detected fraud rings</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Detected fraud rings</h2>
+            <Link href="/rings" className="text-xs hover:underline" style={{ color: "var(--text-secondary)" }}>
+              Full investigation view →
+            </Link>
+          </div>
           <RingsList rings={rings} loading={loading} />
         </div>
       </section>

@@ -34,6 +34,14 @@ export interface GraphResponse {
 export interface FraudRing {
   users: string[];
   component_size: number;
+  devices: string[];
+  ips: string[];
+  transaction_ids: number[];
+  transaction_count: number;
+  total_amount: number;
+  risk_score: number;
+  risk_level: RiskLevel;
+  representative_transaction_id: number | null;
 }
 
 export interface RecentTransaction {

@@ -48,6 +48,14 @@ class GraphResponse(BaseModel):
 class FraudRing(BaseModel):
     users: list[str]
     component_size: int
+    devices: list[str]
+    ips: list[str]
+    transaction_ids: list[int]
+    transaction_count: int
+    total_amount: float
+    risk_score: float
+    risk_level: str
+    representative_transaction_id: int | None = None
 
 
 class ConfusionMatrix(BaseModel):

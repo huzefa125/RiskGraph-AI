@@ -4,7 +4,10 @@ devices/IPs used by exactly one user carry no ring signal and would just be nois
 import networkx as nx
 from sqlalchemy import text
 
+from app.config import FEATURE_COLUMNS, score_to_level
 from app.db.connection import engine
+from app.features.build_features import compute_features, load_raw_transactions
+from app.model.predict import get_model
 
 
 def _shared_entity_ids(conn, column: str, min_users: int) -> set[int]:
@@ -84,13 +87,60 @@ def get_transaction_subgraph(transaction_id: int) -> dict:
     return result
 
 
+def _entity_ids(node_ids, prefix: str) -> list[int]:
+    return sorted(int(n.split(":")[1]) for n in node_ids if n.startswith(f"{prefix}:"))
+
+
 def detect_fraud_rings(min_users: int = 3) -> list[dict]:
     """Connected components with 3+ distinct users sharing a device/IP — the threshold
-    that separates coordinated rings from incidental 2-user overlap in the synthetic data."""
+    that separates coordinated rings from incidental 2-user overlap in the synthetic data.
+
+    Severity (risk_score/risk_level) reuses the actual trained model rather than a new
+    ad hoc formula: every transaction belonging to the ring is scored with the same
+    point-in-time features used everywhere else, and the ring's severity is the mean of
+    those scores. representative_transaction_id lets the UI reuse the existing
+    /graph/{transaction_id} endpoint to inspect the ring — no new graph endpoint needed."""
     G = build_shared_entity_graph(min_users=2)
+    components = [
+        c for c in nx.connected_components(G)
+        if sum(1 for n in c if G.nodes[n]["type"] == "user") >= min_users
+    ]
+    if not components:
+        return []
+
+    model = get_model()
+    features = compute_features(load_raw_transactions()).set_index("transaction_id")
+
     rings = []
-    for component in nx.connected_components(G):
-        users = sorted(n for n in component if G.nodes[n]["type"] == "user")
-        if len(users) >= min_users:
-            rings.append({"users": users, "component_size": len(component)})
+    with engine.connect() as conn:
+        for component in components:
+            users = sorted(n for n in component if G.nodes[n]["type"] == "user")
+            device_ids = _entity_ids(component, "device")
+            ip_ids = _entity_ids(component, "ip")
+
+            txns = conn.execute(
+                text("""
+                    SELECT transaction_id, amount FROM transactions
+                    WHERE device_id = ANY(:devices) OR ip_id = ANY(:ips)
+                """),
+                {"devices": device_ids or [-1], "ips": ip_ids or [-1]},
+            ).all()
+            transaction_ids = sorted(t[0] for t in txns)
+            total_amount = round(float(sum(float(t[1]) for t in txns)), 2)
+
+            ring_features = features.loc[features.index.intersection(transaction_ids), FEATURE_COLUMNS]
+            risk_score = round(float(model.predict_proba(ring_features)[:, 1].mean()) * 100, 2) if len(ring_features) else 0.0
+
+            rings.append({
+                "users": users,
+                "component_size": len(component),
+                "devices": [f"device:{d}" for d in device_ids],
+                "ips": [f"ip:{i}" for i in ip_ids],
+                "transaction_ids": transaction_ids,
+                "transaction_count": len(transaction_ids),
+                "total_amount": total_amount,
+                "risk_score": risk_score,
+                "risk_level": score_to_level(risk_score),
+                "representative_transaction_id": transaction_ids[0] if transaction_ids else None,
+            })
     return rings
