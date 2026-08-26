@@ -25,9 +25,18 @@ event that essentially never co-occurred with new-device + failed-attempts in 80
 so the model had zero training examples of "high amount, no device sharing" fraud OR
 legit and fell back entirely on device_user_count (which then carried ~82% of its
 learned importance). The mixture's large-purchase component gives real density of
-high-amount LEGIT transactions (genuine hard negatives), and N_STANDALONE_FRAUD injects
-explicit high-conviction fraud with no device sharing at all, so the model actually gets
-to learn that path instead of extrapolating blind into it.
+high-amount LEGIT transactions (genuine hard negatives).
+
+Standalone (non-graph) fraud is injected as THREE distinct archetypes, not one bundle.
+A single archetype (new device + extreme amount + failed attempts + night, always
+together) taught the model that exact bundle rather than each signal's own effect —
+verified afterwards: is_new_device flipping from True to False on an otherwise-identical
+transaction swung the score 37 -> 5.6, and failed_attempts=5 through 50 all scored
+IDENTICALLY (XGBoost's trees never split beyond the highest threshold seen in training,
+so anything past ~5 was indistinguishable). The three archetypes below deliberately vary
+which signals are present so each gets learned somewhat independently, and the general
+legit population now occasionally has high failed_attempts too (a forgotten PIN, still
+legitimate) so "many failed attempts" alone isn't a bare fraud tell either.
 
 Run: python -m app.data.generate_synthetic_data
 """
@@ -48,7 +57,14 @@ N_TRANSACTIONS = 8000
 N_FRAUD_RINGS = 6          # groups of users coordinating fraud through a shared device/IP
 RING_SIZE = (3, 6)          # users per ring
 N_FAMILY_DEVICES = 8       # legit devices shared by exactly 2 users each — below the ring threshold
-N_STANDALONE_FRAUD = 25    # explicit high-amount/new-device/failed-attempt fraud, no device sharing
+
+# Standalone (non-graph) fraud comes in three distinct archetypes rather than one bundled
+# combination — see build_standalone_fraud_transactions for why: a single archetype teaches
+# the model that bundle, not each signal's own independent effect.
+N_STANDALONE_NEW_EXTREME = 10      # new device + extreme amount + failed attempts + night
+N_STANDALONE_KNOWN_BRUTEFORCE = 10  # KNOWN device + very high failed attempts, amount varies
+N_STANDALONE_NEW_MODEST = 5        # new device + modest (non-extreme) amount + failed attempts
+N_STANDALONE_DEDICATED = N_STANDALONE_NEW_EXTREME + N_STANDALONE_NEW_MODEST  # need own devices
 
 # disjoint device/IP pools — see module docstring for why these must not overlap.
 # Sized exactly to what's sampled without replacement, so uniqueness is guaranteed by
@@ -57,7 +73,7 @@ N_HOME = N_USERS                              # one unique home device/IP per us
 N_RARE = int(N_TRANSACTIONS * 0.10)           # generous cap on one-off switch events
 N_FAMILY = N_FAMILY_DEVICES
 N_RING = N_FRAUD_RINGS
-N_STANDALONE = N_STANDALONE_FRAUD
+N_STANDALONE = N_STANDALONE_DEDICATED
 
 HOME_START = 0
 RARE_START = HOME_START + N_HOME
@@ -106,18 +122,21 @@ def standalone_fraud_probability(amount: float, failed_attempts: int, hour: int,
     return 1 / (1 + math.exp(-logit))
 
 
-def build_normal_transactions(user_ids, home_ids, rare_ids, merchant_ids, count, family_devices):
+def sample_failed_attempts() -> int:
+    """Mostly 0, occasionally 1-2, and a rare (2%) legit high-friction case (forgotten
+    PIN, several retries, still the account owner) — so high failed_attempts alone,
+    without other signals, isn't a bare fraud tell for the model to over-index on."""
+    if random.random() < 0.02:
+        return random.randint(3, 15)
+    return random.choices([0, 1, 2], weights=[0.9, 0.08, 0.02])[0]
+
+
+def build_normal_transactions(user_ids, user_home_device, user_home_ip, rare_ids, merchant_ids, count, family_devices):
     """Each user mostly reuses one home device/IP. A few users additionally share one
     family device with exactly one other person — legit, but looks graph-suspicious.
-    home_ids/rare_ids are (devices, ips) tuples of disjoint pools. Assignment is by
-    sampling without replacement / a running counter — see module docstring."""
-    home_devices, home_ips = home_ids
+    user_home_device/user_home_ip are pre-assigned in main() (shared with the standalone
+    fraud injector below). rare_ids is a (devices, ips) tuple of the one-off-switch pool."""
     rare_devices, rare_ips = rare_ids
-
-    # each user gets a DISTINCT home device/IP — random.sample guarantees no two users
-    # ever share one by chance (unlike repeated random.choice)
-    user_home_device = dict(zip(user_ids, random.sample(home_devices, len(user_ids))))
-    user_home_ip = dict(zip(user_ids, random.sample(home_ips, len(user_ids))))
     family_device_of = {}
     for device_id, (user_a, user_b) in family_devices:
         family_device_of[user_a] = device_id
@@ -142,7 +161,7 @@ def build_normal_transactions(user_ids, home_ids, rare_ids, merchant_ids, count,
         ip_id = next(next_rare_ip) if random.random() < 0.05 else user_home_ip[user_id]
         occurred_at = random_datetime(START, END)
         amount = sample_amount()
-        failed_attempts = random.choices([0, 1, 2], weights=[0.9, 0.08, 0.02])[0]
+        failed_attempts = sample_failed_attempts()
 
         rows.append({
             "user_id": user_id,
@@ -187,30 +206,60 @@ def build_fraud_ring_transactions(user_ids, ring_devices, ring_ips, merchant_ids
     return rows
 
 
-def build_standalone_fraud_transactions(user_ids, standalone_devices, standalone_ips, merchant_ids):
-    """High-amount, new-device, failed-attempt fraud with NO device/IP sharing at all —
-    each row gets its own dedicated singleton device/IP (device_user_count/ip_user_count
-    always 1). Without these, the model never sees this pattern and can't learn it;
-    with them, it can score standalone anomalies on their own merits, not just via the
-    graph signal."""
+def build_standalone_fraud_transactions(
+    user_ids, standalone_devices, standalone_ips, user_home_device, user_home_ip, merchant_ids
+):
+    """Standalone (non-graph) fraud, NO device/IP sharing — but three distinct archetypes,
+    not one bundle, so the model learns each signal's own effect (see module docstring for
+    what happened with a single archetype)."""
     rows = []
-    chosen_users = random.sample(user_ids, N_STANDALONE_FRAUD)
-    for i, user_id in enumerate(chosen_users):
+    chosen_users = random.sample(
+        user_ids, N_STANDALONE_NEW_EXTREME + N_STANDALONE_KNOWN_BRUTEFORCE + N_STANDALONE_NEW_MODEST
+    )
+    new_extreme_users = chosen_users[:N_STANDALONE_NEW_EXTREME]
+    bruteforce_users = chosen_users[N_STANDALONE_NEW_EXTREME:N_STANDALONE_NEW_EXTREME + N_STANDALONE_KNOWN_BRUTEFORCE]
+    new_modest_users = chosen_users[N_STANDALONE_NEW_EXTREME + N_STANDALONE_KNOWN_BRUTEFORCE:]
+
+    dedicated_devices = iter(standalone_devices)
+    dedicated_ips = iter(standalone_ips)
+
+    # 1. New device + extreme amount + failed attempts + night — a stolen-card-style spree
+    for user_id in new_extreme_users:
         night_hour = random.randint(0, 4)
         occurred_at = random_datetime(START, END).replace(
             hour=night_hour, minute=random.randint(0, 59), second=random.randint(0, 59)
         )
         rows.append({
-            "user_id": user_id,
-            "device_id": standalone_devices[i],
-            "ip_id": standalone_ips[i],
-            "merchant_id": random.choice(merchant_ids),
-            "amount": round(random.uniform(20000, 90000), 2),
-            "payment_method": random.choice(PAYMENT_METHODS),
-            "occurred_at": occurred_at,
-            "failed_attempts": random.randint(2, 5),
-            "is_fraud": True,
+            "user_id": user_id, "device_id": next(dedicated_devices), "ip_id": next(dedicated_ips),
+            "merchant_id": random.choice(merchant_ids), "amount": round(random.uniform(20000, 90000), 2),
+            "payment_method": random.choice(PAYMENT_METHODS), "occurred_at": occurred_at,
+            "failed_attempts": random.randint(2, 6), "is_fraud": True,
         })
+
+    # 2. KNOWN device (the user's own home device/IP) + very high failed attempts, amount
+    # varies — a credential-stuffing/brute-force style pattern where the device isn't new.
+    # Timed in the final week so this user's earlier (already-generated) home-device
+    # transactions almost certainly precede it, making is_new_device correctly False.
+    for user_id in bruteforce_users:
+        occurred_at = random_datetime(END - timedelta(days=7), END)
+        rows.append({
+            "user_id": user_id, "device_id": user_home_device[user_id], "ip_id": user_home_ip[user_id],
+            "merchant_id": random.choice(merchant_ids), "amount": sample_amount(),
+            "payment_method": random.choice(PAYMENT_METHODS), "occurred_at": occurred_at,
+            "failed_attempts": random.randint(10, 30), "is_fraud": True,
+        })
+
+    # 3. New device + MODEST (non-extreme) amount + failed attempts — covers the gap where
+    # amount alone isn't dramatic but new-device+failed-attempts together still matter.
+    for user_id in new_modest_users:
+        occurred_at = random_datetime(START, END)
+        rows.append({
+            "user_id": user_id, "device_id": next(dedicated_devices), "ip_id": next(dedicated_ips),
+            "merchant_id": random.choice(merchant_ids), "amount": round(random.uniform(3000, 9000), 2),
+            "payment_method": random.choice(PAYMENT_METHODS), "occurred_at": occurred_at,
+            "failed_attempts": random.randint(4, 8), "is_fraud": True,
+        })
+
     return rows
 
 
@@ -289,6 +338,13 @@ def main():
     standalone_devices = list(range(STANDALONE_START, STANDALONE_START + N_STANDALONE))
     standalone_ips = list(range(STANDALONE_START, STANDALONE_START + N_STANDALONE))
 
+    # each user gets a DISTINCT home device/IP — random.sample guarantees no two users
+    # ever share one by chance (unlike repeated random.choice). Computed once here so the
+    # standalone-fraud injector can also place a "known device" case on a user's real home
+    # device, not just on freshly-minted singleton devices.
+    user_home_device = dict(zip(user_ids, random.sample(home_devices, len(user_ids))))
+    user_home_ip = dict(zip(user_ids, random.sample(home_ips, len(user_ids))))
+
     family_devices = []
     used_users = set()
     for device_id in family_pool:
@@ -297,10 +353,12 @@ def main():
         used_users.update(pair)
 
     normal_txns = build_normal_transactions(
-        user_ids, (home_devices, home_ips), (rare_devices, rare_ips), merchant_ids, N_TRANSACTIONS, family_devices
+        user_ids, user_home_device, user_home_ip, (rare_devices, rare_ips), merchant_ids, N_TRANSACTIONS, family_devices
     )
     ring_txns = build_fraud_ring_transactions(user_ids, ring_devices, ring_ips, merchant_ids)
-    standalone_txns = build_standalone_fraud_transactions(user_ids, standalone_devices, standalone_ips, merchant_ids)
+    standalone_txns = build_standalone_fraud_transactions(
+        user_ids, standalone_devices, standalone_ips, user_home_device, user_home_ip, merchant_ids
+    )
     transactions = normal_txns + ring_txns + standalone_txns
     assign_new_device_flags(transactions)
     assign_standalone_fraud_labels(transactions)

@@ -60,19 +60,38 @@ def score_transaction(
         device_id = _get_or_create_device(conn, device_fingerprint)
         ip_id = _get_or_create_ip(conn, ip_address)
 
+        # every query below is filtered to occurred_at < :now — not just "whatever's in the
+        # DB", but strictly prior to THIS transaction's timestamp. Matters because /predict
+        # accepts a caller-supplied occurred_at (used throughout testing/demos with backdated
+        # timestamps); without the filter, a backdated transaction could count OTHER rows that
+        # are chronologically later than it as if they were "prior" history. This is what
+        # build_features.py computes for training too, so both paths see the same definition
+        # of "prior".
         used_device_before = conn.execute(
-            text("SELECT EXISTS(SELECT 1 FROM transactions WHERE user_id = :uid AND device_id = :did)"),
-            {"uid": user_id, "did": device_id},
+            text("""
+                SELECT EXISTS(
+                    SELECT 1 FROM transactions
+                    WHERE user_id = :uid AND device_id = :did AND occurred_at < :now
+                )
+            """),
+            {"uid": user_id, "did": device_id, "now": occurred_at},
         ).scalar()
         used_ip_before = conn.execute(
-            text("SELECT EXISTS(SELECT 1 FROM transactions WHERE user_id = :uid AND ip_id = :iid)"),
-            {"uid": user_id, "iid": ip_id},
+            text("""
+                SELECT EXISTS(
+                    SELECT 1 FROM transactions
+                    WHERE user_id = :uid AND ip_id = :iid AND occurred_at < :now
+                )
+            """),
+            {"uid": user_id, "iid": ip_id, "now": occurred_at},
         ).scalar()
         prior_device_users = conn.execute(
-            text("SELECT COUNT(DISTINCT user_id) FROM transactions WHERE device_id = :did"), {"did": device_id}
+            text("SELECT COUNT(DISTINCT user_id) FROM transactions WHERE device_id = :did AND occurred_at < :now"),
+            {"did": device_id, "now": occurred_at},
         ).scalar()
         prior_ip_users = conn.execute(
-            text("SELECT COUNT(DISTINCT user_id) FROM transactions WHERE ip_id = :iid"), {"iid": ip_id}
+            text("SELECT COUNT(DISTINCT user_id) FROM transactions WHERE ip_id = :iid AND occurred_at < :now"),
+            {"iid": ip_id, "now": occurred_at},
         ).scalar()
         recent_txn_count = conn.execute(
             text("""
@@ -82,7 +101,8 @@ def score_transaction(
             {"uid": user_id, "start": occurred_at - timedelta(hours=24), "now": occurred_at},
         ).scalar()
         avg_amount = conn.execute(
-            text("SELECT AVG(amount) FROM transactions WHERE user_id = :uid"), {"uid": user_id}
+            text("SELECT AVG(amount) FROM transactions WHERE user_id = :uid AND occurred_at < :now"),
+            {"uid": user_id, "now": occurred_at},
         ).scalar()
 
         is_new_device = not used_device_before

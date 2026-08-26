@@ -133,11 +133,50 @@ correct):
    the graph path and the standalone-extreme path correctly escalate, and the worst combination
    scores highest.
 
-**Known limitation (accepted, not fixed):** new-device + failed-attempts + a *modest* (not
-extreme) amount, with no device/IP sharing, still scores LOW (~2). The injected standalone-fraud
-examples all used extreme amounts, so the model learned "extreme amount + new device + failed,"
-not "several moderate signals compound." Worth a further data fix only if moderate-severity
-standalone fraud (as opposed to graph-detected or extreme-anomaly fraud) becomes a priority.
+5. **Standalone fraud path was still one bundled archetype.** Live testing found: (a) reusing
+   the same device across sequential test submissions for the same user silently flips
+   `is_new_device` False on the 2nd+ test (test methodology, not a bug — confirmed by pulling the
+   actual persisted rows), and (b) `failed_attempts` scored IDENTICALLY for every value from 5 to
+   50 — XGBoost's trees never split beyond the highest threshold seen in training (~5), so the
+   model genuinely cannot distinguish 5 from 50 failed attempts. Root cause: all 25 injected
+   standalone-fraud examples were one archetype (new device + extreme amount + failed 2-5 +
+   night, always together), so the model learned that bundle, not each signal's independent
+   effect. Fixed by splitting the injection into three archetypes — (1) new device + extreme
+   amount + failed 2-6 + night [10 rows], (2) the user's own KNOWN home device + failed_attempts
+   10-30, amount varies [10 rows, credential-stuffing style], (3) new device + modest amount
+   (₹3-9k) + failed 4-8 [5 rows] — and adding a rare (2%) legit high-friction case (failed
+   attempts 3-15, still the account owner) to the general population so high failed_attempts
+   alone isn't a bare tell either. Verified: known-device failed_attempts now shows a real
+   gradient (flat near-zero through 10, rising at 15, saturating ~15.6 at 20+) instead of a flat
+   5.65 for anything past 3; new-device+modest-amount+failed now reaches MEDIUM (37-44) at 4-8
+   failed attempts, up from a flat LOW (2.04); the original ₹48k scenario still scores
+   CRITICAL (98).
+   **Tradeoff, disclosed not hidden:** held-out F1 dropped from 0.90 to 0.63 (precision 0.91,
+   recall 0.48) — an honest cost of a harder, more diverse, better-covered training
+   distribution, not a regression to hide. A model that's easy to score well on with one
+   bundled archetype was the less trustworthy one.
+6. **Train/predict feature leakage (train-serving skew).** `device_user_count`, `ip_user_count`,
+   and `amount_ratio_to_user_avg` in `build_features.py` were computed once over the WHOLE
+   dataset — so an early (chronologically first) transaction on a device that would eventually
+   become a 6-user ring already showed device_user_count=6, and a user's amount_ratio used their
+   full history including transactions that hadn't happened yet. `predict.py` never had this
+   problem (it can only query what's actually in the DB at scoring time), so training was
+   leaking future information the live path could never see — a real train-serving skew, not a
+   simplification. Fixed: rewrote both features as running/expanding values ordered by
+   `occurred_at` (`_running_entity_user_count`, `_running_amount_ratio` in `build_features.py`),
+   and added a matching `occurred_at < :now` filter to every relevant query in `predict.py`
+   (which previously assumed "whatever's in the DB" = "prior," true only when scoring with the
+   real current time — not true for backdated test timestamps, which this project uses
+   throughout). Verified parity empirically (not just by code review): 7 real transactions,
+   including an early ring-device row, computed identical values via both paths, 0 mismatches.
+   Retrained; metrics dropped again (F1 0.63 → 0.58, ROC-AUC 0.83 → 0.88) — expected, since some
+   of the old apparent skill was the model seeing future ring size before the ring had actually
+   formed. Live-tested: the 1st transaction on a newly-shared device scored LOW (0.13, correctly
+   — no ring evidence yet), the 2nd from a different user immediately flipped to CRITICAL
+   (99.28) the moment real sharing evidence existed. That's the live, real-time-correct behavior
+   a production system needs, which the leaky version could never have — the same event before
+   the fix would have shown high risk on transaction #1, days before anyone else touched that
+   device.
 
 ## Next action
 
