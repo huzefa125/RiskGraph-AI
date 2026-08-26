@@ -1,4 +1,5 @@
 export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type RecommendedAction = "Allow" | "Review" | "Block";
 
 export interface RiskFactor {
   feature: string;
@@ -11,6 +12,7 @@ export interface PredictionResponse {
   user_id: number;
   score: number;
   risk_level: RiskLevel;
+  recommended_action: RecommendedAction;
   risk_factors: RiskFactor[];
 }
 
@@ -52,6 +54,7 @@ export interface RecentTransaction {
   occurred_at: string;
   score: number | null;
   risk_level: RiskLevel | null;
+  recommended_action?: RecommendedAction | null;
   risk_factors?: RiskFactor[] | null;
 }
 
@@ -86,4 +89,27 @@ export interface TransactionInput {
   payment_method: string;
   failed_attempts: number;
   occurred_at?: string;
+}
+
+export type CaseDecision = "Allow" | "Review" | "Block";
+export type CaseStatus = "open" | "resolved";
+
+export interface Case {
+  case_id: number;
+  transaction_id: number;
+  user_id: number;
+  amount: number;
+  risk_score: number;
+  risk_level: RiskLevel;
+  decision: CaseDecision;
+  reason: string | null;
+  status: CaseStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CaseDecisionInput {
+  transaction_id: number;
+  decision: CaseDecision;
+  reason?: string;
 }

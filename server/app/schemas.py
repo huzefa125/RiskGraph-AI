@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -25,6 +26,7 @@ class PredictionResponse(BaseModel):
     user_id: int
     score: float
     risk_level: str
+    recommended_action: str
     risk_factors: list[RiskFactor]
 
 
@@ -88,4 +90,25 @@ class RecentTransaction(BaseModel):
     occurred_at: datetime
     score: float | None = None
     risk_level: str | None = None
+    recommended_action: str | None = None
     risk_factors: list[RiskFactor] | None = None
+
+
+class CaseDecisionInput(BaseModel):
+    transaction_id: int
+    decision: Literal["Allow", "Review", "Block"]
+    reason: str | None = None
+
+
+class Case(BaseModel):
+    case_id: int
+    transaction_id: int
+    user_id: int
+    amount: float
+    risk_score: float
+    risk_level: str
+    decision: str
+    reason: str | None
+    status: str
+    created_at: datetime
+    updated_at: datetime

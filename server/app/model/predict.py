@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import joblib
 from sqlalchemy import text
 
-from app.config import FEATURE_COLUMNS, MODEL_PATH, PAYMENT_METHODS, score_to_level
+from app.config import FEATURE_COLUMNS, MODEL_PATH, PAYMENT_METHODS, level_to_action, score_to_level
 from app.db.connection import engine
 from app.model.explain import explain
 
@@ -133,6 +133,7 @@ def score_transaction(
         probability = model.predict_proba(X)[0][1]
         score = round(float(probability) * 100, 2)
         risk_level = score_to_level(score)
+        recommended_action = level_to_action(risk_level)
         risk_factors = explain(feature_row)
 
         transaction_id = conn.execute(
@@ -169,5 +170,6 @@ def score_transaction(
         "user_id": user_id,
         "score": score,
         "risk_level": risk_level,
+        "recommended_action": recommended_action,
         "risk_factors": risk_factors,
     }

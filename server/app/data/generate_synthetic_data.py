@@ -349,7 +349,7 @@ def _bulk_insert_and_get_ids(conn, table: str, id_column: str, columns: list[str
 
 def load_into_postgres(users, devices, ips, merchants, transactions):
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE risk_scores, transactions, users, devices, ip_addresses, merchants RESTART IDENTITY CASCADE"))
+        conn.execute(text("TRUNCATE cases, risk_scores, transactions, users, devices, ip_addresses, merchants RESTART IDENTITY CASCADE"))
 
         user_ids = _bulk_insert_and_get_ids(conn, "users", "user_id", ["account_created", "is_flagged"], users)
         device_ids = _bulk_insert_and_get_ids(conn, "devices", "device_id", ["fingerprint"], devices)

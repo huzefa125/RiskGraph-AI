@@ -4,11 +4,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.config import METADATA_PATH
+from app.cases import list_cases, record_decision
+from app.config import METADATA_PATH, level_to_action
 from app.db.connection import engine
 from app.graph.build_graph import detect_fraud_rings, get_transaction_subgraph
 from app.model.predict import score_transaction
 from app.schemas import (
+    Case,
+    CaseDecisionInput,
     FraudRing,
     GraphResponse,
     ModelInfo,
@@ -60,6 +63,25 @@ def model_info():
     return json.loads(METADATA_PATH.read_text())
 
 
+@app.post("/cases", response_model=Case)
+def create_case_decision(input: CaseDecisionInput):
+    try:
+        return record_decision(input.transaction_id, input.decision, input.reason)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/cases", response_model=list[Case])
+def get_cases(status: str | None = None):
+    return list_cases(status)
+
+
+def _with_recommended_action(row: dict) -> dict:
+    row = dict(row)
+    row["recommended_action"] = level_to_action(row["risk_level"]) if row.get("risk_level") else None
+    return row
+
+
 @app.get("/transactions/recent", response_model=list[RecentTransaction])
 def recent_transactions(limit: int = 20):
     with engine.connect() as conn:
@@ -74,7 +96,7 @@ def recent_transactions(limit: int = 20):
             """),
             {"limit": limit},
         ).mappings().all()
-    return list(rows)
+    return [_with_recommended_action(row) for row in rows]
 
 
 @app.get("/transactions/{transaction_id}", response_model=RecentTransaction)
@@ -92,4 +114,4 @@ def transaction_detail(transaction_id: int):
         ).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail=f"unknown transaction_id {transaction_id}")
-    return row
+    return _with_recommended_action(row)

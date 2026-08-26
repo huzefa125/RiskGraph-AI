@@ -1,4 +1,7 @@
 import type {
+  Case,
+  CaseDecisionInput,
+  CaseStatus,
   FraudRing,
   GraphResponse,
   ModelInfo,
@@ -36,4 +39,8 @@ export const api = {
     request<RecentTransaction[]>(`/transactions/recent?limit=${limit}`),
   transaction: (transactionId: number) =>
     request<RecentTransaction>(`/transactions/${transactionId}`),
+  recordDecision: (input: CaseDecisionInput) =>
+    request<Case>("/cases", { method: "POST", body: JSON.stringify(input) }),
+  cases: (status?: CaseStatus) =>
+    request<Case[]>(`/cases${status ? `?status=${status}` : ""}`),
 };

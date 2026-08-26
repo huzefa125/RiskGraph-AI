@@ -37,3 +37,19 @@ def score_to_level(score: float) -> str:
         if score <= threshold:
             return level
     return "CRITICAL"
+
+
+# Deterministic policy layer (README section 11): the model produces a score, this table
+# decides the action — the model itself never authorizes/blocks anything. HIGH and
+# CRITICAL both warrant human attention; CRITICAL escalates straight to blocking rather
+# than queuing for review.
+ACTION_BY_LEVEL = {
+    "LOW": "Allow",
+    "MEDIUM": "Review",
+    "HIGH": "Review",
+    "CRITICAL": "Block",
+}
+
+
+def level_to_action(risk_level: str) -> str:
+    return ACTION_BY_LEVEL.get(risk_level, "Review")

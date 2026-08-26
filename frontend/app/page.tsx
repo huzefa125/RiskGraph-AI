@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { FraudRing, GraphResponse, ModelInfo, PredictionResponse, RecentTransaction } from "@/lib/types";
+import type { Case, FraudRing, GraphResponse, ModelInfo, PredictionResponse, RecentTransaction } from "@/lib/types";
 import { StatTile } from "@/components/StatTile";
 import { TransactionForm } from "@/components/TransactionForm";
-import { RiskMeter } from "@/components/RiskMeter";
-import { RiskFactorList } from "@/components/RiskFactorList";
-import { FraudGraph } from "@/components/FraudGraph";
+import { TransactionInvestigationPanel } from "@/components/TransactionInvestigationPanel";
 import { RecentTransactionsTable } from "@/components/RecentTransactionsTable";
 import { RingsList } from "@/components/RingsList";
 
@@ -17,7 +15,10 @@ export default function Home() {
   const [rings, setRings] = useState<FraudRing[]>([]);
   const [recent, setRecent] = useState<RecentTransaction[]>([]);
   const [result, setResult] = useState<PredictionResponse | null>(null);
+  const [transactionDetail, setTransactionDetail] = useState<RecentTransaction | null>(null);
   const [graph, setGraph] = useState<GraphResponse | null>(null);
+  const [resultRing, setResultRing] = useState<FraudRing | null>(null);
+  const [resultCase, setResultCase] = useState<Case | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -39,24 +40,48 @@ export default function Home() {
   async function handleResult(prediction: PredictionResponse) {
     setResult(prediction);
     setGraph(null);
+    setTransactionDetail(null);
+    setResultRing(null);
+    setResultCase(null);
     refreshRecent();
-    try {
-      const g = await api.graph(prediction.transaction_id);
-      setGraph(g);
-    } catch {
-      // transaction has no shared device/IP at all — graph endpoint still works,
-      // this only fails if the transaction_id itself is somehow invalid
+
+    // reuses the same existing endpoints the rest of the app already uses —
+    // Promise.allSettled so one endpoint failing doesn't blank out the others
+    const [graphResult, txnResult, ringsResult, casesResult] = await Promise.allSettled([
+      api.graph(prediction.transaction_id),
+      api.transaction(prediction.transaction_id),
+      api.rings(),
+      api.cases(),
+    ]);
+    if (graphResult.status === "fulfilled") setGraph(graphResult.value);
+    if (txnResult.status === "fulfilled") setTransactionDetail(txnResult.value);
+    if (ringsResult.status === "fulfilled") {
+      setResultRing(ringsResult.value.find((r) => r.transaction_ids.includes(prediction.transaction_id)) ?? null);
+    }
+    if (casesResult.status === "fulfilled") {
+      setResultCase(casesResult.value.find((c) => c.transaction_id === prediction.transaction_id) ?? null);
     }
   }
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-8 px-6 py-10">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">RiskGraph AI</h1>
-        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Risk Intelligence Dashboard — payment fraud scoring, explainability, and fraud-ring
-          detection for the Razorpay AI Risk Manager track.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">RiskGraph AI</h1>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Risk Intelligence Dashboard — payment fraud scoring, explainability, and
+              fraud-ring detection for the Razorpay AI Risk Manager track.
+            </p>
+          </div>
+          <Link
+            href="/cases"
+            className="shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium hover:underline"
+            style={{ borderColor: "var(--border)" }}
+          >
+            Cases &amp; Review →
+          </Link>
+        </div>
       </header>
 
       {loadError && (
@@ -114,23 +139,22 @@ export default function Home() {
             <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
               Submit a transaction to see its risk score, explanation, and entity graph.
             </p>
+          ) : !transactionDetail ? (
+            <p className="mt-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Loading full investigation details…
+            </p>
           ) : (
-            <div className="mt-4 flex flex-col gap-5">
-              <RiskMeter score={result.score} level={result.risk_level} />
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-                  Risk factors
-                </h3>
-                <RiskFactorList factors={result.risk_factors} />
-              </div>
-              {graph && (
-                <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--text-muted)" }}>
-                    Entity graph
-                  </h3>
-                  <FraudGraph graph={graph} focusUserId={result.user_id} />
-                </div>
-              )}
+            <div className="mt-4">
+              <TransactionInvestigationPanel
+                transaction={transactionDetail}
+                score={result.score}
+                riskLevel={result.risk_level}
+                recommendedAction={result.recommended_action}
+                riskFactors={result.risk_factors}
+                graph={graph}
+                ring={resultRing}
+                caseRecord={resultCase}
+              />
             </div>
           )}
         </div>

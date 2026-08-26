@@ -47,3 +47,19 @@ CREATE TABLE IF NOT EXISTS risk_scores (
     risk_factors   JSONB NOT NULL,
     scored_at       TIMESTAMP NOT NULL DEFAULT now()
 );
+
+-- One case per transaction (transaction_id UNIQUE) — an analyst's decision upserts the
+-- same row rather than creating duplicates. risk_score/risk_level are copied in at
+-- decision time (an immutable snapshot of what the analyst saw), not live-joined, since
+-- the model's output for a given transaction never changes after the fact.
+CREATE TABLE IF NOT EXISTS cases (
+    case_id        SERIAL PRIMARY KEY,
+    transaction_id INTEGER NOT NULL UNIQUE REFERENCES transactions(transaction_id),
+    risk_score     NUMERIC(5, 2) NOT NULL,
+    risk_level     TEXT NOT NULL,
+    decision       TEXT NOT NULL,   -- Allow / Review / Block
+    reason         TEXT,
+    status         TEXT NOT NULL,   -- open / resolved — derived from decision
+    created_at     TIMESTAMP NOT NULL DEFAULT now(),
+    updated_at     TIMESTAMP NOT NULL DEFAULT now()
+);
