@@ -5,7 +5,6 @@ import pandas as pd
 import shap
 
 from app.config import FEATURE_COLUMNS, MODEL_PATH, PAYMENT_METHODS
-from app.features.build_features import compute_features, load_raw_transactions
 
 FEATURE_DESCRIPTIONS = {
     "amount": "Unusually high transaction amount",
@@ -28,12 +27,10 @@ def _get_explainer():
     global _explainer
     if _explainer is None:
         model = joblib.load(MODEL_PATH)
-        # passing the model itself (not model.predict_proba) lets shap dispatch to the
-        # fast exact TreeExplainer/LinearExplainer instead of the slow generic/permutation path
-        background = compute_features(load_raw_transactions())[FEATURE_COLUMNS].sample(
-            n=100, random_state=0
-        )
-        _explainer = shap.Explainer(model, background)
+        # tree_path_dependent needs no background dataset and (unlike the interventional
+        # mode shap.Explainer(model, background) picks) doesn't choke on newer XGBoost's
+        # tree dump format
+        _explainer = shap.TreeExplainer(model, feature_perturbation="tree_path_dependent")
     return _explainer
 
 
